@@ -10,6 +10,15 @@ typedef uint16_t inum;
 typedef uint16_t argnum;
 typedef uint32_t fid;
 
+#define NUM_OBJ 255
+uint8_t rc[NUM_OBJ] = {0};
+refnum leftmostRef = 1;
+
+static refnum newRef () {
+  refnum ref = leftmostRef++;
+  while (rc[ref] && ref++ < NUM_OBJ);
+  return ref;
+}
 
 enum ObjType : uint8_t {
   String
@@ -19,7 +28,7 @@ enum SimpleValType : uint8_t {
 };
 enum OpType : uint8_t {
   INC_1, DEC_1, ADD_2, ADD_V, SUB_2, SUB_V, GTHAN_2,
-  STR_V, PRINTLN_1
+  STR_V, GET_STR_0, PRINTLN_1
 };
 enum InsType : uint8_t {
   RETURN, PUSH_NUM, PUSH_CHAR, PUSH_STR, PUSH_PARA,
@@ -32,7 +41,31 @@ struct __attribute__((__packed__)) Object {
   union {
     string* str;
   } as;
-  refnum ref;
+  refnum ref = 0; //Remains 0 for consts
+  Object (string* str, bool isConst = false) {
+    type = String;
+    as.str = str;
+    if (!isConst)
+      ++rc[ref = newRef()];
+  }
+  void ARCsub () {
+    if (ref && !--rc[ref])
+      free();
+  }
+  void free () {
+    switch (type) {
+      case String: delete as.str; break;
+    }
+    if (ref < leftmostRef)
+      leftmostRef = ref;
+  }
+  static refnum checkMemLeak () {
+    refnum ref = 0;
+    refnum leaks = 0;
+    while (ref < NUM_OBJ)
+      leaks += rc[ref++];
+    return leaks;
+  }
 };
 
 //A Value is either a valid double, or a NaN non-simple Object*, or a NaN simple
@@ -68,6 +101,7 @@ struct __attribute__((__packed__)) Value {
     as.tags.ptr = (uintptr_t)obj;
   }
   bool isNum () { return as.tags.qNaN != 0b111111111111; }
+  bool isObj () { return !isNum() && !as.tags.isSimple; }
   bool truthy () { return !as.tags.isSimple || as.simple.type != N && as.simple.type != F; }
   Object* asObj () { return (Object*)(uintptr_t)as.tags.ptr; } //TODO
 };
@@ -121,14 +155,20 @@ public:
 
 
 class KuanVM {
-  uint8_t refs[255] = {0};
   Value stack[1024];
   argnum sp = -1; //Points to last Value on stack
   HeapTable<fid, Instruction, sizeof(Instruction), 255> functions;
 public:
+  void freeStack ();
   void addFunction (fid, Instruction*, inum);
   void executeFunction (fid, argnum, argnum);
 };
+
+void KuanVM::freeStack () {
+  for (; sp != (refnum)-1; --sp)
+    if (stack[sp].isObj())
+      stack[sp].asObj()->free();
+}
 
 void KuanVM::addFunction (fid id, Instruction* instructions, inum length) {
   functions.add(id, instructions, length);
@@ -144,7 +184,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
   };
   static void* ops[] = {
     &&op_inc_1, &&op_dec_1, &&op_add_2, &&op_add_v, &&op_sub_2, &&op_sub_v,
-    &&op_gthan_2, &&op_str_v, &&op_println_1
+    &&op_gthan_2, &&op_str_v, &&op_get_str_0, &&op_println_1
   };
   #define NEXT_INSTRUCTION() goto *instructions[(++f)->what]
   
@@ -224,7 +264,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
 //printf(" STR_V");
       auto str = new string("");
       argnum aN = f->as.op.numArgs;
-      for (argnum a = (sp - aN) + 1, aLen = sp + aN; a < aLen; ++a) {
+      for (argnum a = (sp - aN) + 1, aEnd = sp + 1; a < aEnd; ++a) {
         if (stack[a].isNum())
           *str += to_string(stack[a].as.num);
         else {
@@ -235,19 +275,26 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
               case F: *str += string(1, 'F'); break;
               case Character: *str += string(1, (char)stack[a].as.simple.s08); break;
             }
-          else
+          else {
             switch (stack[a].asObj()->type) {
               case String: str->append(stack[a].asObj()->as.str->c_str()); break;
             }
+            stack[a].asObj()->ARCsub();
+          }
         }
       }
-      stack[(sp - aN) + 1] = Value(new Object{String, {.str = str}});
+      sp -= aN - 1;
+      stack[sp] = Value(new Object(str));
+      NEXT_INSTRUCTION();
+    }
+    op_get_str_0: {
+      stack[++sp] = Value(new Object(new string("Patrick")));
       NEXT_INSTRUCTION();
     }
     op_println_1: {
-      argnum aN = f->as.op.numArgs;
-      printf("%f\n", stack[sp].as.num); //TODO str only
-      stack[sp -= aN - 1] = Value();
+      printf("%s\n", stack[sp].asObj()->as.str->c_str());
+      stack[sp].asObj()->ARCsub();
+      stack[sp] = Value();
       NEXT_INSTRUCTION();
     }
   }
@@ -263,7 +310,7 @@ int main () {
   };*/
 
 
-
+/*
   //(println (fib 35))
   Instruction function0[] {
     {PUSH_NUM, 35},
@@ -288,20 +335,24 @@ int main () {
     {CALL, {.call = {1, 1}}},
     {EXECUTE, {.op = {ADD_2, 2}}}
   };
-/*
-  //(println "Hello" \, " world!")
-  auto hello = new Object{String, new string("hello"), 0};
-  auto world = new Object{String, new string(" world!"), 0};
+*/
+  //(println "Hello, " (get-str) \.)
+  auto hello = new Object(new string("Hello, "), true);
   Instruction function0[] {
     {PUSH_STR, {.obj = hello}},
-    {PUSH_CHAR, ','},
-    {PUSH_STR, {.obj = world}},
-    {EXECUTE, {.op = {PRINTLN_1, 3}}}
-  };*/
+    {EXECUTE, {.op = {GET_STR_0, 0}}},
+    {PUSH_CHAR, '.'},
+    {EXECUTE, {.op = {STR_V, 3}}},
+    {EXECUTE, {.op = {PRINTLN_1, 1}}}
+  };
   auto vm = KuanVM();
   vm.addFunction(0, function0, sizeof(function0)/sizeof(Instruction));
-  vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
+  //vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
   vm.executeFunction(0, 0, 0);
+  vm.freeStack();
+  hello->free();
   
   printf("\nDone.\n");
+  if (auto leaks = Object::checkMemLeak())
+    printf("Warning: %d ARC memory leak/s detected.\n", leaks);
 }

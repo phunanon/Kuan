@@ -18,7 +18,7 @@
 ### Approaches
 
 - Bytecode
-  - Computed ARC memory management
 - Computed GOTO's
 - Double-only arithmetic
   - NaN tagging
+- ARC mem management only where objs are args
