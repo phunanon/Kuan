@@ -2,37 +2,77 @@
 #include <cstring>
 #include <cstdio>
 #include <cinttypes>
+#include <string>
+using namespace std;
 
 typedef uint16_t refnum;
 typedef uint16_t inum;
 typedef uint16_t argnum;
 typedef uint32_t fid;
 
+
 enum ObjType : uint8_t {
-  STRING
+  String
 };
+enum SimpleValType : uint8_t {
+  N, T, F, Character
+};
+enum OpType : uint8_t {
+  INC_1, DEC_1, ADD_2, ADD_V, SUB_2, SUB_V, GTHAN_2,
+  STR_V, PRINTLN_1
+};
+enum InsType : uint8_t {
+  RETURN, PUSH_NUM, PUSH_CHAR, PUSH_STR, PUSH_PARA,
+  CALL, EXECUTE, SKIP, IF
+};
+
+
 struct __attribute__((__packed__)) Object {
   ObjType type;
+  union {
+    string* str;
+  } as;
   refnum ref;
 };
 
-enum ValType : uint8_t {
-  N, T, F, Number, String
-};
+//A Value is either a valid double, or a NaN non-simple Object*, or a NaN simple
 struct __attribute__((__packed__)) Value {
-  ValType type;
   union {
     double num;
-    Object obj;
+    uint64_t u64 = (uint64_t)0xfff8000000000000; //Is nil (simple, NaN, N) by default
+    struct __attribute__((__packed__)) {
+      uint8_t : 3;
+      uintptr_t ptr : 48;
+      uint16_t qNaN : 12;
+      uint8_t isSimple : 1;
+    } tags;
+    struct __attribute__((__packed__)) {
+      SimpleValType type : 8;
+      char s08 : 8;
+      uint64_t : 40;
+    } simple;
   } as;
-  bool truthy () { return type != N && type != F; }
+  Value () {}
+  Value (double num) {
+    as.num = num;
+  }
+  Value (SimpleValType type) {
+    as.simple.type = type;
+  }
+  Value (char ch) {
+    as.simple.type = Character;
+    as.simple.s08 = ch;
+  }
+  Value (Object* obj) {
+    as.tags.isSimple = false;
+    as.tags.ptr = (uintptr_t)obj;
+  }
+  bool isNum () { return as.tags.qNaN != 0b111111111111; }
+  bool truthy () { return !as.tags.isSimple || as.simple.type != N && as.simple.type != F; }
+  Object* asObj () { return (Object*)(uintptr_t)as.tags.ptr; } //TODO
 };
 
 
-enum OpType : uint8_t {
-  INC_1, DEC_1, ADD_2, ADD_V, SUB_2, SUB_V, GTHAN_2,
-  PRINTLN_V
-} what;
 struct __attribute__((__packed__)) Operation {
   OpType what;
   uint8_t numArgs;
@@ -43,15 +83,13 @@ struct __attribute__((__packed__)) Call {
   uint8_t numArgs;
 };
 
-enum InsType : uint8_t {
-  RETURN, PUSH_NUM, PUSH_PARA, CALL, EXECUTE, SKIP, IF
-};
 struct __attribute__((__packed__)) Instruction {
   InsType what;
   union {
     double num;
     Call call;
     Operation op;
+    Object* obj;
   } as;
   uint64_t asInt () { return as.num; }
 };
@@ -83,6 +121,7 @@ public:
 
 
 class KuanVM {
+  uint8_t refs[255] = {0};
   Value stack[1024];
   argnum sp = -1; //Points to last Value on stack
   HeapTable<fid, Instruction, sizeof(Instruction), 255> functions;
@@ -100,12 +139,12 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
   if (!f) return;
   
   static void* instructions[] = {
-    &&ins_halt, &&ins_push_num, &&ins_push_para, &&ins_call, &&ins_execute,
-    &&ins_skip, &&ins_if
+    &&ins_halt, &&ins_push_num, &&ins_push_char, &&ins_push_str, &&ins_push_para,
+    &&ins_call, &&ins_execute, &&ins_skip, &&ins_if
   };
   static void* ops[] = {
     &&op_inc_1, &&op_dec_1, &&op_add_2, &&op_add_v, &&op_sub_2, &&op_sub_v,
-    &&op_gthan_2, &&op_println_v
+    &&op_gthan_2, &&op_str_v, &&op_println_1
   };
   #define NEXT_INSTRUCTION() goto *instructions[(++f)->what]
   
@@ -119,12 +158,22 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
       break;
     ins_push_num:
 //printf(" PUSH_NUM");
-      stack[++sp] = {Number, {.num = f->as.num}};
+      stack[++sp] = Value(f->as.num);
       NEXT_INSTRUCTION();
+    ins_push_char: {
+//printf(" PUSH_CHAR");
+      stack[++sp] = Value((char)f->as.num);
+      NEXT_INSTRUCTION();
+    }
+    ins_push_str: {
+//printf(" PUSH_STR");
+      stack[++sp] = Value(f->as.obj);
+      NEXT_INSTRUCTION();
+    }
     ins_push_para: {
 //printf(" PUSH_PARA");
       argnum p = f->asInt();
-      stack[++sp] = p < pN ? stack[p0 + p] : Value{N};
+      stack[++sp] = p < pN ? stack[p0 + p] : Value();
       NEXT_INSTRUCTION();
     }
     ins_skip:
@@ -168,13 +217,37 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
       //TODO
       NEXT_INSTRUCTION();
     op_gthan_2:
-      stack[sp - 1] = Value{stack[sp - 1].as.num < stack[sp].as.num ? T : F};
+      stack[sp - 1] = Value(stack[sp - 1].as.num < stack[sp].as.num ? T : F);
       --sp;
       NEXT_INSTRUCTION();
-    op_println_v: {
+    op_str_v: {
+//printf(" STR_V");
+      auto str = new string("");
       argnum aN = f->as.op.numArgs;
-      printf("%f\n", stack[sp].as.num); //TODO _V
-      stack[sp -= aN - 1] = Value{};
+      for (argnum a = (sp - aN) + 1, aLen = sp + aN; a < aLen; ++a) {
+        if (stack[a].isNum())
+          *str += to_string(stack[a].as.num);
+        else {
+          if (stack[a].as.tags.isSimple)
+            switch (stack[a].as.simple.type) {
+              case N: *str += string(1, 'N'); break;
+              case T: *str += string(1, 'T'); break;
+              case F: *str += string(1, 'F'); break;
+              case Character: *str += string(1, (char)stack[a].as.simple.s08); break;
+            }
+          else
+            switch (stack[a].asObj()->type) {
+              case String: str->append(stack[a].asObj()->as.str->c_str()); break;
+            }
+        }
+      }
+      stack[(sp - aN) + 1] = Value(new Object{String, {.str = str}});
+      NEXT_INSTRUCTION();
+    }
+    op_println_1: {
+      argnum aN = f->as.op.numArgs;
+      printf("%f\n", stack[sp].as.num); //TODO str only
+      stack[sp -= aN - 1] = Value();
       NEXT_INSTRUCTION();
     }
   }
@@ -189,11 +262,13 @@ int main () {
     {EXECUTE, {.op = {PRINTLN, 1}}}
   };*/
 
-  //(println (fib 5))
+
+
+  //(println (fib 35))
   Instruction function0[] {
     {PUSH_NUM, 35},
     {CALL, {.call = {1, 1}}},
-    {EXECUTE, {.op = {PRINTLN_V, 1}}}
+    {EXECUTE, {.op = {PRINTLN_1, 1}}}
   };
   //(fn fib n (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
   Instruction function1[] {
@@ -213,6 +288,16 @@ int main () {
     {CALL, {.call = {1, 1}}},
     {EXECUTE, {.op = {ADD_2, 2}}}
   };
+/*
+  //(println "Hello" \, " world!")
+  auto hello = new Object{String, new string("hello"), 0};
+  auto world = new Object{String, new string(" world!"), 0};
+  Instruction function0[] {
+    {PUSH_STR, {.obj = hello}},
+    {PUSH_CHAR, ','},
+    {PUSH_STR, {.obj = world}},
+    {EXECUTE, {.op = {PRINTLN_1, 3}}}
+  };*/
   auto vm = KuanVM();
   vm.addFunction(0, function0, sizeof(function0)/sizeof(Instruction));
   vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
