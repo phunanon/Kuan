@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Kuan
+.*
+build
+other
+callgrind.out.*
