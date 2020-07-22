@@ -8,6 +8,7 @@
 - S-expressions
 - Speed
 - REPL
+- No memory leaks
 
 ### Inspirations
 
@@ -22,3 +23,5 @@
 - Double-only arithmetic
   - NaN tagging
 - ARC mem management only where objs are args
+  - ARC mem leak check upon termination
+- Valgrind memleak checks

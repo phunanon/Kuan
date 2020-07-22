@@ -3,19 +3,20 @@
 #include <cstdio>
 #include <cinttypes>
 #include <string>
+#include <vector>
 using namespace std;
 
-typedef uint16_t refnum;
+typedef uint16_t onum;
 typedef uint16_t inum;
 typedef uint16_t argnum;
 typedef uint32_t fid;
 
 #define NUM_OBJ 255
 uint8_t rc[NUM_OBJ] = {0};
-refnum leftmostRef = 1;
+onum leftmostRef = 1;
 
-static refnum newRef () {
-  refnum ref = leftmostRef++;
+static onum newRef () {
+  onum ref = leftmostRef++;
   while (rc[ref] && ref++ < NUM_OBJ);
   return ref;
 }
@@ -41,27 +42,27 @@ struct __attribute__((__packed__)) Object {
   union {
     string* str;
   } as;
-  refnum ref = 0; //Remains 0 for consts
+  onum ref = 0; //Remains 0 for consts
   Object (string* str, bool isConst = false) {
     type = String;
     as.str = str;
     if (!isConst)
       ++rc[ref = newRef()];
   }
-  void ARCsub () {
-    if (ref && !--rc[ref])
-      free();
-  }
-  void free () {
+  ~Object () {
     switch (type) {
       case String: delete as.str; break;
     }
     if (ref < leftmostRef)
       leftmostRef = ref;
   }
-  static refnum checkMemLeak () {
-    refnum ref = 0;
-    refnum leaks = 0;
+  void ARCsub () {
+    if (ref && !--rc[ref])
+      delete this;
+  }
+  static onum checkMemLeak () {
+    onum ref = 0;
+    onum leaks = 0;
     while (ref < NUM_OBJ)
       leaks += rc[ref++];
     return leaks;
@@ -129,27 +130,34 @@ struct __attribute__((__packed__)) Instruction {
 };
 
 
-template <class I, class T, size_t S, uint16_t L>
-class HeapTable {
-  I indices[L];
-  T* items[L];
+//Offers linear look-up of fid -> Instruction*,
+//  and is the owner of func const heap objects
+template <int L>
+class FuncTable {
+  fid ids[L];
+  Instruction* ins[L];
+  vector<Object*> objs[L];
   uint16_t count = 0;
 public:
-  void add (I index, T* data, int size) {
-    indices[count] = index;
-    items[count] = (Instruction*)malloc(size * S);
-    memcpy(items[count], data, size * S);
+  void add (fid id, Instruction* data, inum numIns, vector<Object*> fObjs) {
+    ids[count] = id;
+    ins[count] = (Instruction*)malloc(numIns * sizeof(Instruction));
+    memcpy(ins[count], data, numIns * sizeof(Instruction));
+    objs[count] = fObjs;
     ++count;
   }
-  T* get (I index) {
+  Instruction* get (fid id) {
     for (auto i = 0; i < count; ++i)
-      if (indices[i] == index)
-        return items[i];
+      if (ids[i] == id)
+        return ins[i];
     return nullptr;
   }
-  ~HeapTable () {
-    for (auto i = 0; i < count; ++i)
-      free(items[i]);
+  ~FuncTable () {
+    for (auto i = 0; i < count; ++i) {
+      free(ins[i]);
+      for (auto o : objs[i])
+        delete o;
+    }
   }
 };
 
@@ -157,21 +165,17 @@ public:
 class KuanVM {
   Value stack[1024];
   argnum sp = -1; //Points to last Value on stack
-  HeapTable<fid, Instruction, sizeof(Instruction), 255> functions;
 public:
-  void freeStack ();
-  void addFunction (fid, Instruction*, inum);
+  FuncTable<255> functions;
+  ~KuanVM ();
   void executeFunction (fid, argnum, argnum);
 };
 
-void KuanVM::freeStack () {
-  for (; sp != (refnum)-1; --sp)
+KuanVM::~KuanVM () {
+  //Free the stack
+  for (; sp != (onum)-1; --sp)
     if (stack[sp].isObj())
-      stack[sp].asObj()->free();
-}
-
-void KuanVM::addFunction (fid id, Instruction* instructions, inum length) {
-  functions.add(id, instructions, length);
+      delete stack[sp].asObj();
 }
 
 void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
@@ -346,11 +350,9 @@ int main () {
     {EXECUTE, {.op = {PRINTLN_1, 1}}}
   };
   auto vm = KuanVM();
-  vm.addFunction(0, function0, sizeof(function0)/sizeof(Instruction));
+  vm.functions.add(0, function0, sizeof(function0)/sizeof(Instruction), {hello});
   //vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
   vm.executeFunction(0, 0, 0);
-  vm.freeStack();
-  hello->free();
   
   printf("\nDone.\n");
   if (auto leaks = Object::checkMemLeak())
