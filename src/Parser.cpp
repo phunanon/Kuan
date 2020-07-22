@@ -162,7 +162,37 @@ vector<Instruction> serialise (deque<Token> &tokens, vector<string> paras) {
 //  and return a vector of Instructions for the function
 //fid will either be 0 for an entry form or the hashed function name
 pair<fid, vector<Instruction>> serialise (vector<Token> form) {
- return {};
+  fid id = 0;
+  auto paras = vector<string>();
+  //Check if this is a function declaration
+  //  or part of the entry function
+  if (form.size() > 1 && form[1].str == "fn") {
+    id = hash<string>{}(form[2].str);
+    //Collect param symbols
+    argnum t = 4;
+    //TODO: destructuring goes here
+    for (; form[t].type != Token::RSquare; ++t)
+      paras.push_back(form[t].str);
+    form = vector<Token>(&form[t+1], &form.back());
+  }
+  //Serialise all function forms, or the one entry form
+  auto forms = vector<Instruction>();
+  {
+    auto formTokens = deque<Token>();
+    uint8_t depth = 0;
+    for (auto t : form) {
+      formTokens.push_back(t);
+      if (t.type == Token::LParen || t.type == Token::LSquare) ++depth;
+      if (t.type == Token::RParen || t.type == Token::RSquare) --depth;
+      if (!depth) {
+        if (t.type == Token::LParen)
+          formTokens.pop_front(); //Pop first paren
+        auto instructs = serialise(formTokens, paras);
+        forms.insert(forms.end(), instructs.begin(), instructs.end());
+      }
+    }
+  }
+  return pair<fid, vector<Instruction>>(id, forms);
 }
 
 
