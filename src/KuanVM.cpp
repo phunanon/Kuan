@@ -1,5 +1,4 @@
 #include "KuanVM.hpp"
-#include "config.hpp"
 
 template <int L>
 FuncTable<L>::~FuncTable ()  {

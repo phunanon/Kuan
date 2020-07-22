@@ -44,6 +44,7 @@ int main () {
     {EXECUTE, {.op = {ADD_2, 2}}}
   };
 */
+/*
   //(println "Hello, " (get-str) \.)
   auto hello = new Object(new string("Hello, "), true);
   Instruction function0[] {
@@ -57,6 +58,8 @@ int main () {
   vm.functions.add(0, function0, sizeof(function0)/sizeof(Instruction), {hello});
   //vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
   vm.executeFunction(0, 0, 0);
+*/
+  Parser::parse("(+ 2 2)");
   
   printf("\nDone.\n");
   if (auto leaks = Object::checkMemLeak())
