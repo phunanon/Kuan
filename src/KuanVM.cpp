@@ -1,19 +1,16 @@
 #include "KuanVM.hpp"
 
-template <int L>
-FuncTable<L>::~FuncTable ()  {
-  for (auto i = 0; i < count; ++i) {
-    free(ins[i]);
-    for (auto o : objs[i])
-      delete o;
-  }
-}
-
 KuanVM::~KuanVM () {
   //Free the stack
   for (; sp != (onum)-1; --sp)
     if (stack[sp].isObj())
       delete stack[sp].asObj();
+}
+
+Value KuanVM::executeFunction (fid id, Value param) {
+  stack[sp = 0] = param;
+  executeFunction(id, 0, 1);
+  return stack[sp--];
 }
 
 void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {

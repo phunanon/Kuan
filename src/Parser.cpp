@@ -161,13 +161,13 @@ vector<Instruction> serialise (deque<Token> &tokens, vector<string> paras) {
 //  either a function declaration or entry form,
 //  and return a vector of Instructions for the function
 //fid will either be 0 for an entry form or the hashed function name
-pair<fid, vector<Instruction>> serialise (vector<Token> form) {
-  fid id = 0;
+unique_ptr<Function> serialise (vector<Token> form) {
+  auto func = make_unique<Function>();
   auto paras = vector<string>();
   //Check if this is a function declaration
   //  or part of the entry function
   if (form.size() > 1 && form[1].str == "fn") {
-    id = hash<string>{}(form[2].str);
+    func->id = hash<string>{}(form[2].str);
     //Collect param symbols
     argnum t = 4;
     //TODO: destructuring goes here
@@ -176,7 +176,6 @@ pair<fid, vector<Instruction>> serialise (vector<Token> form) {
     form = vector<Token>(&form[t+1], &form.back());
   }
   //Serialise all function forms, or the one entry form
-  auto forms = vector<Instruction>();
   {
     auto formTokens = deque<Token>();
     uint8_t depth = 0;
@@ -188,33 +187,39 @@ pair<fid, vector<Instruction>> serialise (vector<Token> form) {
         if (t.type == Token::LParen)
           formTokens.pop_front(); //Pop first paren
         auto instructs = serialise(formTokens, paras);
-        forms.insert(forms.end(), instructs.begin(), instructs.end());
+        func->ins.insert(func->ins.end(), instructs.begin(), instructs.end());
       }
     }
   }
-  return pair<fid, vector<Instruction>>(id, forms);
+  return func;
 }
 
 
 //Parses a string source into a vector of Instructions per function
 //  with fid 0 as the entry Instructions
-map<fid, vector<Instruction>> Parser::parse (string source) {
+vector<unique_ptr<Function>> Parser::parse (string source) {
+auto f = make_unique<Function>();
+f->ins.push_back({PUSH_NUM, 123});
+f->ins.push_back({PUSH_NUM, 456});
+f->ins.push_back(Instruction{EXECUTE, {.op = {ADD_2, 2}}});
+auto fs = vector<unique_ptr<Function>>();
+fs.push_back(move(f));
+return fs;
   auto noExtraneousSpace = removeExtraneousSpace(source);
   auto tokens = tokenise(noExtraneousSpace);
 //for (auto t : tokens) printf("%d %s\t", t.type, t.str.c_str());
 //printf("\n");
 //return {};
   auto separatedTokens = separate(tokens);
-  auto funcs = map<fid, vector<Instruction>>();
+  auto funcs = vector<unique_ptr<Function>>();
   for (auto tokens : separatedTokens) {
-    auto instructs = serialise(tokens);
+    auto func = serialise(tokens);
     //If this is a non-entry function, insert it as new
     //  otherwise insert it into the entry function's vector
-    if (instructs.first)
-      funcs.insert(instructs);
+    if (func->id)
+      funcs.push_back(move(func));
     else
-      if (instructs.second.size())
-        funcs[0].insert(funcs[0].end(), instructs.second.begin(), instructs.second.end());
+      funcs[0]->mergeIn(move(func));
   }
   return funcs;
 }

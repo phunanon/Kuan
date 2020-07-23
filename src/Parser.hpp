@@ -1,8 +1,8 @@
 #pragma once
 #include <vector>
-#include <map>
+#include <memory>
 #include "classes.hpp"
 
 struct Parser {
-  static map<fid, vector<Instruction>> parse (string);
+  static vector<unique_ptr<Function>> parse (string);
 };

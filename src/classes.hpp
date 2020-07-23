@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <vector>
+#include <memory>
 #include "config.hpp"
 using namespace std;
 
@@ -71,7 +73,8 @@ struct __attribute__((__packed__)) Value {
   bool isNum () { return as.tags.qNaN != 0b111111111111; }
   bool isObj () { return !isNum() && !as.tags.isSimple; }
   bool truthy () { return !as.tags.isSimple || (as.simple.type != N && as.simple.type != F); }
-  Object* asObj () { return (Object*)(uintptr_t)as.tags.ptr; } //TODO
+  Object* asObj () { return (Object*)(uintptr_t)as.tags.ptr; }
+  void tryDelete () { if (isObj()) delete asObj(); }
 };
 
 
@@ -94,4 +97,15 @@ struct __attribute__((__packed__)) Instruction {
     Object* obj;
   } as;
   uint64_t asInt () { return as.num; }
+};
+
+
+//Encapsulates a Function created in the Parser.
+//  It owns (frees) the Object pointers.
+struct Function {
+  fid id;
+  vector<Instruction> ins;
+  vector<Object*> objs;
+  ~Function ();
+  void mergeIn (unique_ptr<Function>);
 };

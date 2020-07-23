@@ -16,3 +16,18 @@ onum Object::checkMemLeak () {
     leaks += rc[ref++];
   return leaks;
 }
+
+Function::~Function () {
+  for (auto o : objs)
+    delete o;
+}
+
+//Merges two functions together,
+//  retaining the id of the target function,
+//  linearly appending the ins of the source into the target,
+//  and invalidating the objects of the source
+void Function::mergeIn (unique_ptr<Function> source) {
+  ins.insert(ins.end(), source->ins.begin(), source->ins.end());
+  objs.insert(objs.end(), source->objs.begin(), source->objs.end());
+  source->objs.clear();
+}

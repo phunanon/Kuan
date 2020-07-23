@@ -1,14 +1,67 @@
-#include <cstdlib>
-#include <cstring>
-#include <cstdio>
-#include <cinttypes>
 #include <string>
 #include <vector>
+#include <memory>
+#include <fstream>
+#include <iterator>
+#include "linenoise/linenoise.h"
+#include "keypresses.c"
 #include "KuanVM.hpp"
 #include "Parser.hpp"
 using namespace std;
 
-int main () {
+bool parseAndLoad (KuanVM &vm, string input) {
+  bool hasEntry = false;
+  auto parsed = Parser::parse(input);
+  for (uint i = 0; i < parsed.size(); ++i) {
+    hasEntry |= !parsed[i]->id;
+    vm.functions.add(move(parsed[i]));
+  }
+  return hasEntry;
+}
+
+void repl () {
+  printf("Kuan REPL. %% gives previous result. Arrow keys navigate history/entry. q or ^C to quit.\n");
+  auto vm = KuanVM();
+  Value previous;
+  while (true) {
+    string input;
+    {
+      char* line = linenoise("> ");
+      if (!line) return;
+      linenoiseHistoryAdd(line);
+      input = string(line);
+      if (!input.length()) continue;
+      free(line);
+      if (input == "q") break;
+    }
+    vm.functions.remove(0);
+    if (parseAndLoad(vm, input)) {
+      auto v = vm.executeFunction(0, previous);
+      previous.tryDelete();
+      previous = v;
+      printf("%f\n", v.as.num); //TODO to string
+    }
+  }
+  previous.tryDelete();
+}
+
+int main (int argc, char *argv[]) {
+  kb_listen();
+  if (argc > 1) {
+    ifstream infile{string(argv[1])};
+    auto vm = KuanVM();
+    parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
+    auto ret = vm.executeFunction(0, {});
+    if (argc == 3 && string(argv[2]) == "-r")
+      printf("%f\n", ret.as.num); //TODO to string
+  } else repl();
+
+  if (auto leaks = Object::checkMemLeak())
+    printf("Warning: %d ARC memory leak/s detected.\n", leaks);
+  
+  printf("\nDone.\n");
+  return 0;
+}
 
   /*Instruction function[1024] {
     {PUSH_NUM, 123},
@@ -59,9 +112,3 @@ int main () {
   //vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
   vm.executeFunction(0, 0, 0);
 */
-  Parser::parse("(+ 2 2)");
-  
-  printf("\nDone.\n");
-  if (auto leaks = Object::checkMemLeak())
-    printf("Warning: %d ARC memory leak/s detected.\n", leaks);
-}
