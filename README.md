@@ -25,6 +25,7 @@
 ### Approaches
 
 - Bytecode
+  - Different native operations for fixed-arg and varadic
 - Computed GOTO's
 - Double-only arithmetic
   - NaN tagging

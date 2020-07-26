@@ -56,12 +56,9 @@ struct __attribute__((__packed__)) Value {
     } simple;
   } as;
   Value () {}
-  Value (double num) {
-    as.num = num;
-  }
-  Value (SimpleValType type) {
-    as.simple.type = type;
-  }
+  Value (double num) { as.num = num; }
+  Value (bool b) { as.simple.type = b ? T : F; }
+  Value (SimpleValType type) { as.simple.type = type; }
   Value (char ch) {
     as.simple.type = Character;
     as.simple.s08 = ch;
