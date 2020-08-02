@@ -143,8 +143,9 @@ vector<vector<Token>> separate (vector<Token> tokens) {
 //Accepts a symbol and arity, where arity 255 is varadic
 OpType symToOp (const char* symbol, uint8_t arity) {
   for (uint8_t o = 1; opSymbols[o]; ++o)
-    if (!strcmp(symbol, opSymbols[o]) && opArities[o] == arity)
-      return (OpType)o;
+    if (!strcmp(symbol, opSymbols[o]))
+      if (opArities[o] == arity || opArities[o] == 255)
+        return (OpType)o;
   return NONE_0;
 }
 
@@ -152,8 +153,54 @@ OpType symToOp (const char* symbol, uint8_t arity) {
 //Take a vector of tokens and parameters,
 //  which constitutes one form,
 //  and return a vector of Instruction
-vector<Instruction> serialise (deque<Token> &tokens, vector<string> paras) {
-  return {};
+void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
+  //Check if (op ...) or ((...) ...)
+  //  so ((...) ...) becomes (exe (...) ...)
+  Token opToken = tokens.front();
+  tokens.pop_front();
+  if (opToken.type == Token::LParen) {
+    opToken = Token{Token::Symbol, "exe"};
+    serialise(tokens, func, paras);
+  }
+  //Collect arguments until the closing parenthesis
+  uint8_t arity = 0;
+  while (tokens[0].type != Token::RParen) {
+    ++arity;
+    auto token = tokens.front();
+    tokens.pop_front();
+    switch (token.type) {
+      case Token::LParen:
+        serialise(tokens, func, paras);
+        break;
+      case Token::Number: {
+        bool isNeg  = token.str[0] == '-';
+        bool preDot = token.str[isNeg] == '.';
+        bool isHex  = token.str.find('x') != string::npos;
+        token.str = token.str.substr(preDot ? isNeg + preDot : 0);
+        func->ins.push_back({PUSH_NUM, {.num = stod(token.str)}});
+        break;
+      }
+      case Token::Char: {
+        //FIXME with nl sp
+        func->ins.push_back({PUSH_CHAR, {.num = (double)token.str[1]}});
+        break;
+      }
+      case Token::String: {
+        auto obj = new Object(new string(token.str), true);
+        func->ins.push_back(Instruction{PUSH_STR, {.obj = obj}});
+        break;
+      }
+      case Token::Symbol: {
+        //A symbol is  
+          //  a (bool, nil, variable, op, parameter, or function)
+      }
+    }
+  }
+  //Pop right paren
+  tokens.pop_front();
+  //Append operation instruction
+  OpType opType = symToOp(opToken.str.c_str(), arity);
+  func->ins.push_back(Instruction{EXECUTE, {.op = {opType, arity}}});
 }
 
 
@@ -184,10 +231,9 @@ unique_ptr<Function> serialise (vector<Token> form) {
       if (t.type == Token::LParen || t.type == Token::LSquare) ++depth;
       if (t.type == Token::RParen || t.type == Token::RSquare) --depth;
       if (!depth) {
-        if (t.type == Token::LParen)
+        if (formTokens[0].type == Token::LParen)
           formTokens.pop_front(); //Pop first paren
-        auto instructs = serialise(formTokens, paras);
-        func->ins.insert(func->ins.end(), instructs.begin(), instructs.end());
+        serialise(formTokens, func.get(), paras);
       }
     }
   }
@@ -198,13 +244,6 @@ unique_ptr<Function> serialise (vector<Token> form) {
 //Parses a string source into a vector of Instructions per function
 //  with fid 0 as the entry Instructions
 vector<unique_ptr<Function>> Parser::parse (string source) {
-auto f = make_unique<Function>();
-f->ins.push_back({PUSH_NUM, 123});
-f->ins.push_back({PUSH_NUM, 456});
-f->ins.push_back(Instruction{EXECUTE, {.op = {ADD_2, 2}}});
-auto fs = vector<unique_ptr<Function>>();
-fs.push_back(move(f));
-return fs;
   auto noExtraneousSpace = removeExtraneousSpace(source);
   auto tokens = tokenise(noExtraneousSpace);
 //for (auto t : tokens) printf("%d %s\t", t.type, t.str.c_str());
@@ -212,6 +251,9 @@ return fs;
 //return {};
   auto separatedTokens = separate(tokens);
   auto funcs = vector<unique_ptr<Function>>();
+  //Add an entry function
+  funcs.push_back(make_unique<Function>());
+  //Serialise all functions/entry forms
   for (auto tokens : separatedTokens) {
     auto func = serialise(tokens);
     //If this is a non-entry function, insert it as new
@@ -220,6 +262,12 @@ return fs;
       funcs.push_back(move(func));
     else
       funcs[0]->mergeIn(move(func));
+  }
+  //Ensure the entry function returns a string for potential REPL output
+  {
+    auto last = funcs[0]->ins.back();
+    if (last.what != EXECUTE || last.as.op.what != STR_V)
+      funcs[0]->ins.push_back(Instruction{EXECUTE, {.op = {STR_V, 1}}});
   }
   return funcs;
 }

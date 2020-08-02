@@ -24,16 +24,27 @@ struct __attribute__((__packed__)) Object {
     if (!isConst)
       ++rc[ref = newRef()];
   }
+  Object (const Object& o) {
+    type = o.type;
+    as = o.as;
+    if ((ref = o.ref))
+      ++rc[ref];
+  }
+  Object& operator= (const Object& o) {
+    type = o.type;
+    as = o.as;
+    if ((ref = o.ref))
+      ++rc[ref];
+    return *this;
+  }
   ~Object () {
+    if (ref && --rc[ref])
+      return;
     switch (type) {
       case String: delete as.str; break;
     }
-    if (ref < leftmostRef)
+    if (ref && ref < leftmostRef)
       leftmostRef = ref;
-  }
-  void ARCsub () {
-    if (ref && !--rc[ref])
-      delete this;
   }
   static onum checkMemLeak ();
 };

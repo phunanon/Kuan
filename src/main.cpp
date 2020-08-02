@@ -30,8 +30,8 @@ void repl () {
       if (!line) return;
       linenoiseHistoryAdd(line);
       input = string(line);
-      if (!input.length()) continue;
       free(line);
+      if (!input.length()) continue;
       if (input == "q") break;
     }
     vm.functions.remove(0);
@@ -39,7 +39,8 @@ void repl () {
       auto v = vm.executeFunction(0, previous);
       previous.tryDelete();
       previous = v;
-      printf("%f\n", v.as.num); //TODO to string
+      //The entry function always returns a string, so print it
+      printf("%s\n", v.asObj()->as.str->c_str());
     }
   }
   previous.tryDelete();
@@ -53,7 +54,8 @@ int main (int argc, char *argv[]) {
     parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
     auto ret = vm.executeFunction(0, {});
     if (argc == 3 && string(argv[2]) == "-r")
-      printf("%f\n", ret.as.num); //TODO to string
+      printf("%s\n", ret.asObj()->as.str->c_str());
+    delete ret.asObj();
   } else repl();
 
   if (auto leaks = Object::checkMemLeak())
@@ -62,13 +64,6 @@ int main (int argc, char *argv[]) {
   printf("\nDone.\n");
   return 0;
 }
-
-  /*Instruction function[1024] {
-    {PUSH_NUM, 123},
-    {PUSH_NUM, 456},
-    {EXECUTE, {.op = {ADD, 2}}},
-    {EXECUTE, {.op = {PRINTLN, 1}}}
-  };*/
 
 
 /*
@@ -96,19 +91,4 @@ int main (int argc, char *argv[]) {
     {CALL, {.call = {1, 1}}},
     {EXECUTE, {.op = {ADD_2, 2}}}
   };
-*/
-/*
-  //(println "Hello, " (get-str) \.)
-  auto hello = new Object(new string("Hello, "), true);
-  Instruction function0[] {
-    {PUSH_STR, {.obj = hello}},
-    {EXECUTE, {.op = {GET_STR_0, 0}}},
-    {PUSH_CHAR, '.'},
-    {EXECUTE, {.op = {STR_V, 3}}},
-    {EXECUTE, {.op = {PRINTLN_1, 1}}}
-  };
-  auto vm = KuanVM();
-  vm.functions.add(0, function0, sizeof(function0)/sizeof(Instruction), {hello});
-  //vm.addFunction(1, function1, sizeof(function1)/sizeof(Instruction));
-  vm.executeFunction(0, 0, 0);
 */
