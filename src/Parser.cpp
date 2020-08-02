@@ -163,6 +163,8 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
     serialise(tokens, func, paras);
   }
   //Collect arguments until the closing parenthesis
+  bool isIf = opToken.str == "if";
+  inum ifAt, skipAt;
   uint8_t arity = 0;
   while (tokens[0].type != Token::RParen) {
     ++arity;
@@ -182,7 +184,7 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
       }
       case Token::Char: {
         //FIXME with nl sp
-        func->ins.push_back({PUSH_CHAR, {.num = (double)token.str[1]}});
+        func->ins.push_back({PUSH_CHAR, {.ch = token.str[1]}});
         break;
       }
       case Token::String: {
@@ -191,13 +193,35 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
         break;
       }
       case Token::Symbol: {
-        //A symbol is  
-          //  a (bool, nil, variable, op, parameter, or function)
+        //A symbol is
+        //  a bool, (nil, variable, op, parameter, or function)
+        char ch = token.str[0];
+        //True/False
+        if (ch == 'T' || ch == 'F') {
+          func->ins.push_back(Instruction{PUSH_BOOL, {.tru = ch == 'T'}});
+          break;
+        }
+      }
+    }
+    //If this is a special form, insert skip's in appropriate positions
+    if (isIf) {
+      if (arity == 1) { //(if cond ...)
+        ifAt = func->ins.size();
+        func->ins.push_back(Instruction{IF, 0});
+      } else if (arity == 2) { //(if cond if-true ...)
+        skipAt = func->ins.size();
+        func->ins.push_back(Instruction{SKIP, 0});
       }
     }
   }
   //Pop right paren
   tokens.pop_front();
+  //If a special form, handle differently
+  if (isIf) {
+    func->ins.at(ifAt).as.u32 = skipAt - ifAt;
+    func->ins.at(skipAt).as.u32 = (func->ins.size() - skipAt) - 1;
+    return;
+  }
   //Append operation instruction
   OpType opType = symToOp(opToken.str.c_str(), arity);
   func->ins.push_back(Instruction{EXECUTE, {.op = {opType, arity}}});

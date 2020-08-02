@@ -9,10 +9,10 @@
 
 (NYA) - Not Yet Achieved
 
-- S-expressions (NYA)
+- S-expressions
 - Speed
 - [ARC](https://en.wikipedia.org/wiki/Automatic_Reference_Counting) memory management
-- REPL (NYA)
+- REPL
 - Lazy enumerables (NYA)
   - List
   - Map
@@ -39,4 +39,6 @@
 `git clone --depth=1 https://github.com/phunanon/Kuan`  
 Ensure CMake in installed on your system.  
 Run `./init.sh`. If needing to subsequently recompile use `./make.sh`.  
-Execute `./build/kuan` in the terminal.
+Execute `./build/kuan` in the terminal for the REPL,  
+with a file path as the command-line argument to parse and execute,  
+with `-r` as the second command-line argument to return last value. 

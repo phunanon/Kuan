@@ -62,8 +62,8 @@ struct __attribute__((__packed__)) Value {
     } tags;
     struct __attribute__((__packed__)) {
       SimpleValType type : 8;
-      char s08 : 8;
-      uint64_t : 40;
+      char ch : 8;
+      uint64_t : 13;
     } simple;
   } as;
   Value () {}
@@ -72,7 +72,7 @@ struct __attribute__((__packed__)) Value {
   Value (SimpleValType type) { as.simple.type = type; }
   Value (char ch) {
     as.simple.type = Character;
-    as.simple.s08 = ch;
+    as.simple.ch = ch;
   }
   Value (Object* obj) {
     as.tags.isSimple = false;
@@ -100,11 +100,13 @@ struct __attribute__((__packed__)) Instruction {
   InsType what;
   union {
     double num;
+    char ch;
+    bool tru;
+    uint32_t u32;
     Call call;
     Operation op;
     Object* obj;
   } as;
-  uint64_t asInt () { return as.num; }
 };
 
 

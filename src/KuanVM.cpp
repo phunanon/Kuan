@@ -3,10 +3,8 @@
 
 void FuncTable::remove (fid id) {
   uint16_t fAt;
-  if (funcIdAt(id, fAt)) {
-    delete funcs[fAt].get();
+  if (funcIdAt(id, fAt))
     funcs.erase(funcs.begin() + fAt);
-  }
 }
 
 void FuncTable::add (unique_ptr<Function> func) {
@@ -34,18 +32,6 @@ Value KuanVM::executeFunction (fid id, Value param) {
 }
 
 
-//Used for varadic + - * /
-#define ARITH_V(OPERATOR) { \
-  argnum aN = f->as.op.numArgs; \
-  argnum a = (sp - (aN - 1)), aEnd = sp + 1; \
-  double sum = stack[a].as.num; \
-  for (++a; a < aEnd; ++a) \
-    sum OPERATOR stack[a].as.num; \
-  sp -= aN - 1; \
-  stack[sp] = Value(sum); \
-  NEXT_INSTRUCTION(); \
-}
-
 //Used for 2 arg + - * /
 #define ARITH_2(OPERATOR) \
   stack[sp - 1].as.num OPERATOR stack[sp].as.num; \
@@ -57,6 +43,18 @@ Value KuanVM::executeFunction (fid id, Value param) {
   stack[sp - 1] = Value(stack[sp - 1].as.num OPERATOR stack[sp].as.num); \
   --sp; \
   NEXT_INSTRUCTION();
+
+//Used for varadic + - * /
+#define ARITH_V(OPERATOR) { \
+  argnum aN = f->as.op.numArgs; \
+  argnum a = (sp - (aN - 1)), aEnd = sp + 1; \
+  double sum = stack[a].as.num; \
+  for (++a; a < aEnd; ++a) \
+    sum OPERATOR stack[a].as.num; \
+  sp -= aN - 1; \
+  stack[sp] = Value(sum); \
+  NEXT_INSTRUCTION(); \
+}
 
 //Used for varadic < > <= >=
 #define COMPARE_V(OPERATOR) { \
@@ -74,14 +72,19 @@ Value KuanVM::executeFunction (fid id, Value param) {
   NEXT_INSTRUCTION(); \
 }
 
+//Used for PUSH_NUM PUSH_BOOL PUSH_CHAR PUSH_STR
+#define PUSH_X(WHAT) \
+  stack[++sp] = Value(WHAT); \
+  NEXT_INSTRUCTION();
+
 
 void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
   Instruction* f = functions.get(id);
   if (!f) return;
   
   static void* instructions[] = {
-    &&ins_halt, &&ins_push_num, &&ins_push_char, &&ins_push_str, &&ins_push_para,
-    &&ins_call, &&ins_execute, &&ins_skip, &&ins_if
+    &&ins_halt, &&ins_push_num, &&ins_push_bool, &&ins_push_char, &&ins_push_str, 
+    &&ins_push_para, &&ins_call, &&ins_execute, &&ins_skip, &&ins_if
   };
   static void* ops[] = {
     &&op_none_0, &&op_exe_v, &&op_inc_1, &&op_dec_1,
@@ -98,38 +101,24 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
   NEXT_INSTRUCTION();
   while (true) {
     ins_halt:
-//printf(" RETURN");
       stack[p0] = stack[sp];
       sp = p0;
       break;
-    ins_push_num:
-//printf(" PUSH_NUM");
-      stack[++sp] = Value(f->as.num);
-      NEXT_INSTRUCTION();
-    ins_push_char: {
-//printf(" PUSH_CHAR");
-      stack[++sp] = Value((char)f->as.num);
-      NEXT_INSTRUCTION();
-    }
-    ins_push_str: {
-//printf(" PUSH_STR");
-      stack[++sp] = Value(f->as.obj);
-      NEXT_INSTRUCTION();
-    }
+    ins_push_num:  PUSH_X(f->as.num)
+    ins_push_bool: PUSH_X(f->as.tru)
+    ins_push_char: PUSH_X(f->as.ch)
+    ins_push_str:  PUSH_X(f->as.obj)
     ins_push_para: {
-//printf(" PUSH_PARA");
-      argnum p = f->asInt();
+      argnum p = f->as.u32;
       stack[++sp] = p < pN ? stack[p0 + p] : Value();
       NEXT_INSTRUCTION();
     }
     ins_skip:
-//printf(" SKIP");
-      f += (int)f->as.num;
+      f += (int)f->as.u32;
       NEXT_INSTRUCTION();
     ins_if:
-//printf(" IF");
       if (!stack[sp].truthy())
-        f += (int)f->as.num;
+        f += (int)f->as.u32;
       --sp;
       NEXT_INSTRUCTION();
     ins_call: {
@@ -142,8 +131,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
 //printf(" EXECUTE");
       goto *ops[f->as.op.what];
 
-    op_none_0:
-      NEXT_INSTRUCTION();
+    op_none_0: NEXT_INSTRUCTION();
     op_exe_v:
       //TODO
       NEXT_INSTRUCTION();
@@ -217,7 +205,7 @@ void KuanVM::Op_Str_V (argnum aN) {
           case N: *str += string(1, 'N'); break;
           case T: *str += string(1, 'T'); break;
           case F: *str += string(1, 'F'); break;
-          case Character: *str += string(1, (char)stack[a].as.simple.s08); break;
+          case Character: *str += string(1, (char)stack[a].as.simple.ch); break;
         }
       else {
         switch (stack[a].asObj()->type) {

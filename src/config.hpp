@@ -23,8 +23,8 @@ enum OpType : uint8_t {
   STR_V, PRINTLN_V
 };
 enum InsType : uint8_t {
-  RETURN, PUSH_NUM, PUSH_CHAR, PUSH_STR, PUSH_PARA,
-  CALL, EXECUTE, SKIP, IF
+  RETURN, PUSH_NUM, PUSH_BOOL, PUSH_CHAR, PUSH_STR,
+  PUSH_PARA, CALL, EXECUTE, SKIP, IF
 };
 
 //These tables describe the symbols and their arities,
