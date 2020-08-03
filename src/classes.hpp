@@ -49,11 +49,13 @@ struct __attribute__((__packed__)) Object {
   static onum checkMemLeak ();
 };
 
+#define DEFAULT_VAL (uint64_t)0xfff8000000000000 //Is nil (simple, NaN, N) by default
+
 //A Value is either a valid double, or a NaN non-simple Object*, or a NaN simple
 struct __attribute__((__packed__)) Value {
   union {
     double num;
-    uint64_t u64 = (uint64_t)0xfff8000000000000; //Is nil (simple, NaN, N) by default
+    uint64_t u64 = DEFAULT_VAL;
     struct __attribute__((__packed__)) {
       uint8_t : 3;
       uintptr_t ptr : 48;
@@ -102,7 +104,7 @@ struct __attribute__((__packed__)) Instruction {
     double num;
     char ch;
     bool tru;
-    uint32_t u32;
+    uint64_t u64;
     Call call;
     Operation op;
     Object* obj;
@@ -116,6 +118,7 @@ struct Function {
   fid id;
   vector<Instruction> ins;
   vector<Object*> objs;
+  string name = "entry";
   ~Function ();
   void mergeIn (unique_ptr<Function>);
 };

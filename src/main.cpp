@@ -13,7 +13,11 @@ bool parseAndLoad (KuanVM &vm, string input) {
   bool hasEntry = false;
   auto parsed = Parser::parse(input);
   for (uint i = 0; i < parsed.size(); ++i) {
-    hasEntry |= !parsed[i]->id;
+    if (parsed[i]->id && !parsed[i]->ins.size()) {
+      printf("ERR: `%s` is malformed, so discarded.\n", parsed[i]->name.c_str());
+      continue;
+    }
+    hasEntry |= !parsed[i]->id && parsed[i]->ins.size();
     vm.functions.add(move(parsed[i]));
   }
   return hasEntry;
@@ -60,35 +64,5 @@ int main (int argc, char *argv[]) {
 
   if (auto leaks = Object::checkMemLeak())
     printf("Warning: %d ARC memory leak/s detected.\n", leaks);
-  
-  printf("\nDone.\n");
   return 0;
 }
-
-
-/*
-  //(println (fib 35))
-  Instruction function0[] {
-    {PUSH_NUM, 35},
-    {CALL, {.call = {1, 1}}},
-    {EXECUTE, {.op = {PRINTLN_1, 1}}}
-  };
-  //(fn fib n (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2)))))
-  Instruction function1[] {
-    {PUSH_PARA, 0},
-    {PUSH_NUM, 2},
-    {EXECUTE, {.op = {GTHAN_2, 2}}},
-    {IF, 2},
-    {PUSH_PARA, 0},
-    {SKIP, 9},
-    {PUSH_PARA, 0},
-    {PUSH_NUM, 1},
-    {EXECUTE, {.op = {SUB_2, 2}}},
-    {CALL, {.call = {1, 1}}},
-    {PUSH_PARA, 0},
-    {PUSH_NUM, 2},
-    {EXECUTE, {.op = {SUB_2, 2}}},
-    {CALL, {.call = {1, 1}}},
-    {EXECUTE, {.op = {ADD_2, 2}}}
-  };
-*/

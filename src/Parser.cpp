@@ -164,7 +164,7 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
   }
   //Collect arguments until the closing parenthesis
   bool isIf = opToken.str == "if";
-  inum ifAt, skipAt;
+  inum ifAt = 0, skipAt = 0;
   uint8_t arity = 0;
   while (tokens[0].type != Token::RParen) {
     ++arity;
@@ -194,12 +194,25 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
       }
       case Token::Symbol: {
         //A symbol is
-        //  a bool, (nil, variable, op, parameter, or function)
-        char ch = token.str[0];
-        //True/False
-        if (ch == 'T' || ch == 'F') {
-          func->ins.push_back(Instruction{PUSH_BOOL, {.tru = ch == 'T'}});
-          break;
+        //  a bool, nil, parameter, [TODO: variable, op, or function]
+        {
+          char ch = token.str[0];
+          //True/False
+          if (ch == 'T' || ch == 'F') {
+            func->ins.push_back(Instruction{PUSH_BOOL, {.tru = ch == 'T'}});
+            break;
+          }
+          //Nil
+          if (ch == 'N') {
+            func->ins.push_back(Instruction{PUSH_NUM, {.u64 = DEFAULT_VAL}});
+            break;
+          }
+        } { //Param
+          auto pIt = find(paras.begin(), paras.end(), token.str); 
+          if (pIt != paras.end()) {
+            func->ins.push_back(Instruction{PUSH_PARA, {.u64 = (uint)(pIt - paras.begin())}});
+            break;
+          }
         }
       }
     }
@@ -218,13 +231,18 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
   tokens.pop_front();
   //If a special form, handle differently
   if (isIf) {
-    func->ins.at(ifAt).as.u32 = skipAt - ifAt;
-    func->ins.at(skipAt).as.u32 = (func->ins.size() - skipAt) - 1;
+    func->ins.at(ifAt).as.u64 = skipAt - ifAt;
+    func->ins.at(skipAt).as.u64 = (func->ins.size() - skipAt) - 1;
     return;
   }
-  //Append operation instruction
+  //Append operation or function call instruction
   OpType opType = symToOp(opToken.str.c_str(), arity);
-  func->ins.push_back(Instruction{EXECUTE, {.op = {opType, arity}}});
+  if (!opType) {
+    //Wasn't an op, so might be a [TODO: parameter, variable, or] function
+    fid fID = hash<string>{}(opToken.str);
+    func->ins.push_back(Instruction{CALL, {.call = {fID, arity}}});
+  } else
+    func->ins.push_back(Instruction{EXECUTE, {.op = {opType, arity}}});
 }
 
 
@@ -238,7 +256,8 @@ unique_ptr<Function> serialise (vector<Token> form) {
   //Check if this is a function declaration
   //  or part of the entry function
   if (form.size() > 1 && form[1].str == "fn") {
-    func->id = hash<string>{}(form[2].str);
+    func->name = form[2].str;
+    func->id = hash<string>{}(func->name);
     //Collect param symbols
     argnum t = 4;
     //TODO: destructuring goes here
@@ -288,7 +307,7 @@ vector<unique_ptr<Function>> Parser::parse (string source) {
       funcs[0]->mergeIn(move(func));
   }
   //Ensure the entry function returns a string for potential REPL output
-  {
+  if (funcs[0]->ins.size()) {
     auto last = funcs[0]->ins.back();
     if (last.what != EXECUTE || last.as.op.what != STR_V)
       funcs[0]->ins.push_back(Instruction{EXECUTE, {.op = {STR_V, 1}}});

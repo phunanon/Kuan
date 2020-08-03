@@ -8,7 +8,7 @@ void FuncTable::remove (fid id) {
 }
 
 void FuncTable::add (unique_ptr<Function> func) {
-  if (func->ins.back().what != RETURN)
+  if (!func->ins.size() || func->ins.back().what != RETURN)
     func->ins.push_back({RETURN}); //Ensure a function returns
   uint16_t prevFunc;
   if (funcIdAt(func->id, prevFunc))
@@ -109,16 +109,16 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
     ins_push_char: PUSH_X(f->as.ch)
     ins_push_str:  PUSH_X(f->as.obj)
     ins_push_para: {
-      argnum p = f->as.u32;
+      argnum p = f->as.u64;
       stack[++sp] = p < pN ? stack[p0 + p] : Value();
       NEXT_INSTRUCTION();
     }
     ins_skip:
-      f += (int)f->as.u32;
+      f += (int)f->as.u64;
       NEXT_INSTRUCTION();
     ins_if:
       if (!stack[sp].truthy())
-        f += (int)f->as.u32;
+        f += (int)f->as.u64;
       --sp;
       NEXT_INSTRUCTION();
     ins_call: {
