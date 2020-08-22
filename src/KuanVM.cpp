@@ -110,7 +110,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
     ins_push_str:  PUSH_X(f->as.obj)
     ins_push_para: {
       argnum p = f->as.u64;
-      stack[++sp] = p < pN ? stack[p0 + p] : Value();
+      stack[++sp] = stack[p0 + p];
       NEXT_INSTRUCTION();
     }
     ins_skip:
@@ -122,13 +122,11 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
       --sp;
       NEXT_INSTRUCTION();
     ins_call: {
-//printf(" CALL");
       argnum aN = f->as.call.numArgs;
       executeFunction(f->as.call.fID, (sp+1) - aN, aN);
       NEXT_INSTRUCTION();
     }
     ins_execute:
-//printf(" EXECUTE");
       goto *ops[f->as.op.what];
 
     op_none_0: NEXT_INSTRUCTION();

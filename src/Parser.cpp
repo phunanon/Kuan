@@ -126,6 +126,37 @@ vector<Token> tokenise (const string& input) {
 }
 
 
+vector<Token> hoistLambdas (vector<Token> tokens) {
+  auto body = vector<Token>();
+  auto lambdas = vector<Token>();
+  auto depth = 0;
+
+  for (size_t t = 0; t < tokens.size(); ++t) {
+    if (tokens[t].type == Token::Hash) {
+      lambdas.push_back(Token{Token::LParen, "("});
+      lambdas.push_back(Token{Token::Symbol, "fn"});
+      auto insNameAt = lambdas.size();
+      string funcStr = "";
+      do {
+        lambdas.push_back(tokens[++t]);
+        funcStr += tokens[t].str + "_";
+        auto type = tokens[t].type;
+        depth += (type == Token::LParen) - (type == Token::RParen);
+      } while (depth);
+      lambdas.push_back(Token{Token::RParen, ")"});
+      //Insert function name
+      string fName = "F" + funcStr;
+      lambdas.insert(lambdas.begin() + insNameAt, Token{Token::Symbol, fName});
+      body.push_back(Token{Token::Symbol, fName});
+    } else
+      body.push_back(tokens[t]);
+  }
+
+  body.insert(body.end(), lambdas.begin(), lambdas.end());
+  return body;
+}
+
+
 //Separate all tokens by the highest level of parenthesis
 vector<vector<Token>> separate (vector<Token> tokens) {
   auto funcs = vector<vector<Token>>();
@@ -190,6 +221,12 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
       case Token::String: {
         auto obj = new Object(new string(token.str), true);
         func->ins.push_back(Instruction{PUSH_STR, {.obj = obj}});
+        break;
+      }
+      case Token::Para: {
+        token.str.erase(token.str.begin());
+        fid fID = token.str.length() ? stoi(token.str) : 0;
+        func->ins.push_back(Instruction{PUSH_PARA, {.u64 = fID}});
         break;
       }
       case Token::Symbol: {
@@ -259,10 +296,12 @@ unique_ptr<Function> serialise (vector<Token> form) {
     func->name = form[2].str;
     func->id = hash<string>{}(func->name);
     //Collect param symbols
-    argnum t = 4;
-    //TODO: destructuring goes here
-    for (; form[t].type != Token::RSquare; ++t)
-      paras.push_back(form[t].str);
+    argnum t = 2;
+    if (form[3].type == Token::LSquare) {
+      //TODO: destructuring goes here
+      for (t += 2; form[t].type != Token::RSquare; ++t)
+        paras.push_back(form[t].str);
+    }
     form = vector<Token>(&form[t+1], &form.back());
   }
   //Serialise all function forms, or the one entry form
@@ -289,10 +328,8 @@ unique_ptr<Function> serialise (vector<Token> form) {
 vector<unique_ptr<Function>> Parser::parse (string source) {
   auto noExtraneousSpace = removeExtraneousSpace(source);
   auto tokens = tokenise(noExtraneousSpace);
-//for (auto t : tokens) printf("%d %s\t", t.type, t.str.c_str());
-//printf("\n");
-//return {};
-  auto separatedTokens = separate(tokens);
+  auto rearrangedTokens = hoistLambdas(tokens);
+  auto separatedTokens = separate(rearrangedTokens);
   auto funcs = vector<unique_ptr<Function>>();
   //Add an entry function
   funcs.push_back(make_unique<Function>());
