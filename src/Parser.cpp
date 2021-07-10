@@ -162,18 +162,35 @@ vector<vector<Token>> separate (vector<Token> tokens) {
   auto funcs = vector<vector<Token>>();
   uint8_t depth = 0;
   for (auto t : tokens) {
-    if (!depth) funcs.push_back(vector<Token>());
+    if (!depth) {
+      funcs.push_back(vector<Token>());
+    }
     funcs.back().push_back(t);
-    if (t.type == Token::LParen || t.type == Token::LSquare) ++depth;
-    if (t.type == Token::RParen || t.type == Token::RSquare) --depth;
+    depth += (t.type == Token::LParen || t.type == Token::LSquare)
+           - (t.type == Token::RParen || t.type == Token::RSquare);
   }
   return funcs;
 }
 
 
+//Wrap functions with single tokens in (none ...)
+void wrapSingles (vector<vector<Token>> &separates) {
+  for (size_t s = 0; s < separates.size(); ++s) {
+    if (separates.at(s).size() == 1) {
+      separates.at(s) = vector<Token> {
+          {Token::LParen, "("},
+          {Token::Symbol, ""},
+          separates.at(s).back(),
+          {Token::RParen, ")"},
+        };
+    }
+  }
+}
+
+
 //Accepts a symbol and arity, where arity 255 is varadic
 OpType symToOp (const char* symbol, uint8_t arity) {
-  for (uint8_t o = 1; opSymbols[o]; ++o)
+  for (uint8_t o = 0; opSymbols[o]; ++o)
     if (!strcmp(symbol, opSymbols[o]))
       if (opArities[o] == arity || opArities[o] == 255)
         return (OpType)o;
@@ -310,8 +327,8 @@ unique_ptr<Function> serialise (vector<Token> form) {
     uint8_t depth = 0;
     for (auto t : form) {
       formTokens.push_back(t);
-      if (t.type == Token::LParen || t.type == Token::LSquare) ++depth;
-      if (t.type == Token::RParen || t.type == Token::RSquare) --depth;
+      depth += (t.type == Token::LParen || t.type == Token::LSquare)
+             - (t.type == Token::RParen || t.type == Token::RSquare);
       if (!depth) {
         if (formTokens[0].type == Token::LParen)
           formTokens.pop_front(); //Pop first paren
@@ -330,6 +347,7 @@ vector<unique_ptr<Function>> Parser::parse (string source) {
   auto tokens = tokenise(noExtraneousSpace);
   auto rearrangedTokens = hoistLambdas(tokens);
   auto separatedTokens = separate(rearrangedTokens);
+  wrapSingles(separatedTokens);
   auto funcs = vector<unique_ptr<Function>>();
   //Add an entry function
   funcs.push_back(make_unique<Function>());
