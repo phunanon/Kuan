@@ -45,9 +45,10 @@
 `git clone --depth=1 https://github.com/phunanon/Kuan`  
 Ensure CMake in installed on your system.  
 Run `./init.sh`. If needing to subsequently recompile use `./make.sh`.  
-Execute `./build/kuan` in the terminal for the REPL,  
+Execute `./build/kuan` in the terminal for the REPL;  
 with a file path as the command-line argument to parse and execute,  
-with `-r` as the second command-line argument to return last value.
+optionally with `-r` as the second argument to return last value;  
+or with code as string e.g. `./build/kuan "(+ 1 1)"`.
 
 ### Syntax and native operations
 

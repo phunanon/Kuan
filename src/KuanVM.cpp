@@ -21,8 +21,7 @@ void FuncTable::add (unique_ptr<Function> func) {
 KuanVM::~KuanVM () {
   //Free the stack
   for (; sp != (onum)-1; --sp)
-    if (stack[sp].isObj())
-      delete stack[sp].obj();
+    stack[sp].tryDelete();
 }
 
 Value KuanVM::executeFunction (fid id, Value param) {
@@ -220,6 +219,5 @@ void KuanVM::Op_Str_V (argnum aN) {
 void KuanVM::printVal (Value v) {
   stack[++sp] = v;
   Op_Str_V(1);
-  printf("%s\n", stack[sp].obj()->as.str->c_str());
-  delete stack[sp--].obj();
+  printf("%s\n", stack[sp--].obj()->as.str->c_str());
 }

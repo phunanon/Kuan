@@ -52,8 +52,17 @@ void repl () {
 int main (int argc, char *argv[]) {
   kb_listen();
   if (argc > 1) {
-    ifstream infile{string(argv[1])};
     auto vm = KuanVM();
+    //Handle code as argument
+    if (argv[1][0] == '(') {
+      parseAndLoad(vm, string(argv[1]));
+      auto ret = vm.executeFunction(0, {});
+      vm.printVal(ret);
+      ret.tryDelete();
+      return 0;
+    }
+    //Handle file as argument
+    ifstream infile{string(argv[1])};
     parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
     auto ret = vm.executeFunction(0, {});
     if (argc == 3 && string(argv[2]) == "-r")
