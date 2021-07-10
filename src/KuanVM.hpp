@@ -32,4 +32,5 @@ public:
   FuncTable functions;
   ~KuanVM ();
   Value executeFunction (fid, Value);
+  void printVal (Value);
 };

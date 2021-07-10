@@ -343,11 +343,5 @@ vector<unique_ptr<Function>> Parser::parse (string source) {
     else
       funcs[0]->mergeIn(move(func));
   }
-  //Ensure the entry function returns a string for potential REPL output
-  if (funcs[0]->ins.size()) {
-    auto last = funcs[0]->ins.back();
-    if (last.what != EXECUTE || last.as.op.what != STR_V)
-      funcs[0]->ins.push_back(Instruction{EXECUTE, {.op = {STR_V, 1}}});
-  }
   return funcs;
 }

@@ -83,8 +83,8 @@ struct __attribute__((__packed__)) Value {
   bool isNum () { return as.tags.qNaN != 0b111111111111; }
   bool isObj () { return !isNum() && !as.tags.isSimple; }
   bool truthy () { return !as.tags.isSimple || (as.simple.type != N && as.simple.type != F); }
-  Object* asObj () { return (Object*)(uintptr_t)as.tags.ptr; }
-  void tryDelete () { if (isObj()) delete asObj(); }
+  Object* obj () { return (Object*)(uintptr_t)as.tags.ptr; }
+  void tryDelete () { if (isObj()) delete obj(); }
 };
 
 

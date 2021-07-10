@@ -22,7 +22,7 @@ KuanVM::~KuanVM () {
   //Free the stack
   for (; sp != (onum)-1; --sp)
     if (stack[sp].isObj())
-      delete stack[sp].asObj();
+      delete stack[sp].obj();
 }
 
 Value KuanVM::executeFunction (fid id, Value param) {
@@ -182,8 +182,8 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
       NEXT_INSTRUCTION();
     op_println_v:
       Op_Str_V(f->as.op.numArgs);
-      printf("%s\n", stack[sp].asObj()->as.str->c_str());
-      delete stack[sp].asObj();
+      printf("%s\n", stack[sp].obj()->as.str->c_str());
+      delete stack[sp].obj();
       stack[sp] = Value();
       NEXT_INSTRUCTION();
   }
@@ -206,13 +206,20 @@ void KuanVM::Op_Str_V (argnum aN) {
           case Character: *str += string(1, (char)stack[a].as.simple.ch); break;
         }
       else {
-        switch (stack[a].asObj()->type) {
-          case String: str->append(stack[a].asObj()->as.str->c_str()); break;
+        switch (stack[a].obj()->type) {
+          case String: str->append(stack[a].obj()->as.str->c_str()); break;
         }
-        delete stack[a].asObj();
+        delete stack[a].obj();
       }
     }
   }
   sp -= aN - 1;
   stack[sp] = Value(new Object(str));
+}
+
+void KuanVM::printVal (Value v) {
+  stack[++sp] = v;
+  Op_Str_V(1);
+  printf("%s\n", stack[sp].obj()->as.str->c_str());
+  delete stack[sp--].obj();
 }

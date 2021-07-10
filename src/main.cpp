@@ -31,7 +31,7 @@ void repl () {
     string input;
     {
       char* line = linenoise("> ");
-      if (!line) return;
+      if (!line) break;
       linenoiseHistoryAdd(line);
       input = string(line);
       free(line);
@@ -43,8 +43,7 @@ void repl () {
       auto v = vm.executeFunction(0, previous);
       previous.tryDelete();
       previous = v;
-      //The entry function always returns a string, so print it
-      printf("%s\n", v.asObj()->as.str->c_str());
+      vm.printVal(v);
     }
   }
   previous.tryDelete();
@@ -58,8 +57,8 @@ int main (int argc, char *argv[]) {
     parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
     auto ret = vm.executeFunction(0, {});
     if (argc == 3 && string(argv[2]) == "-r")
-      printf("%s\n", ret.asObj()->as.str->c_str());
-    delete ret.asObj();
+      vm.printVal(ret);
+    ret.tryDelete();
   } else repl();
 
   if (auto leaks = Object::checkMemLeak())
