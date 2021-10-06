@@ -99,13 +99,14 @@ Returns `if-true` if `cond` is truthy, or `if-false` or `N` if `cond` is falsey.
 
 ### Benchmarks
 
-As of 5th August 2020. Most using [`hyperfine`](https://github.com/sharkdp/hyperfine) with `3` warmups, `10` runs.
+As of 5th August 2020. Most using [`hyperfine`](https://github.com/sharkdp/hyperfine) with `3` warmups, `10` runs.  
+Janet added 6th Oct 2021.
 
-| What   | C    | Kuan  | NodeJS | Wren   | Python3 pypy | Clojure            | C#                |
-| ------ | ---- | ----- | ------ | ------ | ------------ | ------------------ | ----------------- |
-| fib 35 | 35ms | 632ms | 168ms  | 1327ms | 250ms        | 2994ms, 143ms warm | 2630ms, 95ms warm |
+| What   | C    | Kuan  | NodeJS | Wren   | Janet  | pypy3 | Clojure        | C#              |
+| ------ | ---- | ----- | ------ | ------ | ------ | ------| -------------- | --------------- |
+| fib 35 | 35ms | 632ms | 168ms  | 1327ms | 1474ms | 250ms | 3s, 143ms warm | 2.6s, 95ms warm |
 
-**Kuan / Clojure (almost)**
+**Kuan / Janet (almost) / Clojure (almost)**
 
 ```clj
 (fn fib [n]
@@ -151,4 +152,5 @@ print(fib(35))
 
 ```csharp
 static int fib (int n) => n < 2 ? n : fib(n - 1) + fib(n - 2);
-static void Main () => Console.WriteLine(fib(35));```
+static void Main () => Console.WriteLine(fib(35));
+```
