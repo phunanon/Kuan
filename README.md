@@ -5,6 +5,8 @@
 
 **Inspirations**: [Chika](https://github.com/phunanon/Chika), [Ephem](https://github.com/phunanon/Ephem), [Wren](https://github.com/wren-lang/wren)
 
+**Aspiration**: [Insitux](https://github.com/phunanon/Insitux)
+
 ### Goals & Features
 
 (NYA) - Not Yet Achieved
@@ -13,20 +15,18 @@
 - Speed
 - [ARC](https://en.wikipedia.org/wiki/Automatic_Reference_Counting) memory management
 - REPL
-- Lazy enumerables (NYA)
+- Collections (NYA)
   - List
   - Map
-  - Range, Cycle, Emit, Repeat
-  - Set
-  - Network streams
-  - File streams
+  - Network stream
+  - File stream
 - Anonymous functions
+  - Closures (NYA)
 - Easy imports (NYA)
-
-**Anti-features / trade-offs / corner-cutting**  
-- No program errors
-- Leaked memory with inappropriate use
-- No closures
+- Program errors (NYA)
+- Type-checking (NYA)
+  - Parsetime (NYA)
+  - Parsetime-calculated runtime (NYA)
 
 ### Approaches
 
