@@ -41,12 +41,10 @@ void repl () {
     vm.functions.remove(0);
     if (parseAndLoad(vm, input)) {
       auto v = vm.executeFunction(0, previous);
-      previous.tryDelete();
       previous = v;
-      vm.printVal(v);
+      printf("%s\n", vm.ValAsStr(v).c_str());
     }
   }
-  previous.tryDelete();
 }
 
 int main (int argc, char *argv[]) {
@@ -57,8 +55,7 @@ int main (int argc, char *argv[]) {
     if (argv[1][0] == '(') {
       parseAndLoad(vm, string(argv[1]));
       auto ret = vm.executeFunction(0, {});
-      vm.printVal(ret);
-      ret.tryDelete();
+      printf("%s\n", vm.ValAsStr(ret).c_str());
       return 0;
     }
     //Handle file as argument
@@ -66,11 +63,10 @@ int main (int argc, char *argv[]) {
     parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
     auto ret = vm.executeFunction(0, {});
     if (argc == 3 && string(argv[2]) == "-r")
-      vm.printVal(ret);
-    ret.tryDelete();
+      printf("%s\n", vm.ValAsStr(ret).c_str());
   } else repl();
 
-  if (auto leaks = Object::checkMemLeak())
+  if (auto leaks = Value::checkMemLeak())
     printf("Warning: %d ARC memory leak/s detected.\n", leaks);
   return 0;
 }

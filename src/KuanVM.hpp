@@ -28,9 +28,10 @@ class KuanVM {
   argnum sp = -1; //Points to last Value on stack
   void executeFunction (fid, argnum, argnum);
   void Op_Str_V (argnum);
+  void Op_Vec_V (argnum);
 public:
   FuncTable functions;
   ~KuanVM ();
   Value executeFunction (fid, Value);
-  void printVal (Value);
+  string ValAsStr (Value);
 };

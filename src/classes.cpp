@@ -9,7 +9,7 @@ onum newRef () {
   return ref;
 }
 
-onum Object::checkMemLeak () {
+onum Value::checkMemLeak () {
   onum ref = 0;
   onum leaks = 0;
   while (ref < NUM_OBJ)
@@ -17,9 +17,27 @@ onum Object::checkMemLeak () {
   return leaks;
 }
 
-Function::~Function () {
-  for (auto o : objs)
-    delete o;
+Value::~Value () {
+  if (ref && --rc[ref])
+    return;
+  switch (as.tags.type) {
+    case String: delete asStr(); break;
+    case Vector: delete asVec(*this); break;
+  }
+  if (ref && ref < leftmostRef)
+    leftmostRef = ref;
+}
+
+Value vecValue (immer::flex_vector<Value>* vec) {
+  auto value = Value();
+  value.as.tags.type = Vector;
+  value.as.tags.ptr = (uintptr_t)vec;
+  ++rc[value.ref = newRef()];
+  return value;
+}
+
+immer::flex_vector<Value>* asVec (Value& value) {
+  return (immer::flex_vector<Value>*)(uintptr_t)value.as.tags.ptr;
 }
 
 //Merges two functions together,

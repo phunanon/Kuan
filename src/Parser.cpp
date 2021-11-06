@@ -69,21 +69,32 @@ struct Token {
     Char, Number, String, Symbol
   } type;
   string str;
+  bool operator==(const Token& other) {
+    return type == other.type && !strcmp(str.c_str(), other.str.c_str());
+  }
 };
 
 vector<Token> tokenise (const string& input) {
   auto tokens = vector<Token>();
+  bool inFuncSig = false;
   for (uint16_t i = 0, iLen = input.length(); i < iLen; ++i) {
     char c = input[i];
-    //Handle # ( ) [ ]
+    //Handle # ( ) ]
     {
       auto type = Token::Unknown;
       switch (c) {
         case '#': type = Token::Hash;    break;
         case '(': type = Token::LParen;  break;
         case ')': type = Token::RParen;  break;
-        case '[': type = Token::LSquare; break;
-        case ']': type = Token::RSquare; break;
+        case ']':
+          if (inFuncSig) {
+            inFuncSig = false;
+            type = Token::RSquare;
+          } else {
+            type = Token::RParen;
+            c = ')';
+          }
+          break;
       }
       if (type != Token::Unknown) {
         tokens.push_back(Token{type, string(1, c)});
@@ -101,6 +112,20 @@ vector<Token> tokenise (const string& input) {
     //Skip spaces
     if (c == ' ' || c == '\n')
       continue;
+    //Handle [
+    if (c == '[') {
+      //Check if part of function signature
+      auto isFuncSig = tokens.size() > 2
+                    && (tokens.at(tokens.size() - 2) == Token{Token::Symbol, "fn"});
+      if (isFuncSig) {
+          tokens.push_back(Token{Token::LSquare, "["});
+          inFuncSig = true;
+      } else {
+        tokens.push_back(Token{Token::LParen, "("});
+        tokens.push_back(Token{Token::Symbol, "vec"});
+      }
+      continue;
+    }
     //Collect next string before
     //  space newline " ( ) [ ]
     auto nextDelim = input.find_first_of(" \n\"()[]", i);
@@ -236,7 +261,7 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
         break;
       }
       case Token::String: {
-        auto obj = new Object(new string(token.str), true);
+        auto obj = new Value(new string(token.str), true);
         func->ins.push_back(Instruction{PUSH_STR, {.obj = obj}});
         break;
       }
@@ -281,7 +306,7 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
       }
     }
   }
-  //Pop right paren
+  //Pop right paren/square
   tokens.pop_front();
   //If a special form, handle differently
   if (isIf) {
