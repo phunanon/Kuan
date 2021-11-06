@@ -18,7 +18,7 @@ onum Value::checkMemLeak () {
 }
 
 Value::~Value () {
-  if (ref && --rc[ref])
+  if (!ref || --rc[ref])
     return;
   switch (as.tags.type) {
     case String: delete asStr(); break;

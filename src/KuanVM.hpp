@@ -33,5 +33,5 @@ public:
   FuncTable functions;
   ~KuanVM ();
   Value executeFunction (fid, Value);
-  string ValAsStr (Value);
+  string ValAsStr (Value&);
 };

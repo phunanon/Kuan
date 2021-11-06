@@ -261,8 +261,8 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
         break;
       }
       case Token::String: {
-        auto obj = new Value(new string(token.str), true);
-        func->ins.push_back(Instruction{PUSH_STR, {.obj = obj}});
+        auto value = new Value(new string(token.str), true);
+        func->ins.push_back(Instruction{PUSH_STR, {.val = value}});
         break;
       }
       case Token::Para: {

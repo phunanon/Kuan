@@ -68,6 +68,8 @@ struct __attribute__((__packed__)) Value {
   }
   Value& operator= (const Value& value) {
     as = value.as;
+    if (ref)
+      this->~Value();
     if ((ref = value.ref))
       ++rc[ref];
     return *this;
@@ -99,7 +101,7 @@ struct __attribute__((__packed__)) Instruction {
     uint64_t u64;
     Call call;
     Operation op;
-    Value* obj;
+    Value* val;
   } as;
 };
 
