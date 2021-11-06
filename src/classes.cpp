@@ -2,11 +2,26 @@
 
 //ARC memory management
 uint8_t rc[NUM_OBJ] = {0};
-onum leftmostRef = 1;
+onum leftmostRef = 1; //0 is reserved for consts
 onum newRef () {
   onum ref = leftmostRef++;
-  while (rc[ref] && ref++ < NUM_OBJ);
+  while (rc[ref] && ref++ < NUM_OBJ); //TODO: handle memory overflow
   return ref;
+}
+
+void Value::tryDelete () {
+  if (isObj() && obj()->ref) {
+    auto ref = obj()->ref;
+    delete obj();
+    as.tags.isSimple = !rc[ref];
+  }
+}
+
+Value Value::copy () {
+  Value newValue {as};
+  if (isObj() && obj()->ref)
+    ++rc[obj()->ref];
+  return newValue;
 }
 
 onum Object::checkMemLeak () {

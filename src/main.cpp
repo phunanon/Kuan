@@ -43,7 +43,7 @@ void repl () {
       auto v = vm.executeFunction(0, previous);
       previous.tryDelete();
       previous = v;
-      vm.printVal(v);
+      printf("%s\n", vm.ValAsStr(v).c_str());
     }
   }
   previous.tryDelete();
@@ -57,7 +57,7 @@ int main (int argc, char *argv[]) {
     if (argv[1][0] == '(') {
       parseAndLoad(vm, string(argv[1]));
       auto ret = vm.executeFunction(0, {});
-      vm.printVal(ret);
+      printf("%s\n", vm.ValAsStr(ret).c_str());
       ret.tryDelete();
       return 0;
     }
@@ -66,7 +66,7 @@ int main (int argc, char *argv[]) {
     parseAndLoad(vm, {istreambuf_iterator<char>(infile), istreambuf_iterator<char>()});
     auto ret = vm.executeFunction(0, {});
     if (argc == 3 && string(argv[2]) == "-r")
-      vm.printVal(ret);
+      printf("%s\n", vm.ValAsStr(ret).c_str());
     ret.tryDelete();
   } else repl();
 

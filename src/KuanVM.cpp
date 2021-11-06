@@ -92,7 +92,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
     &&op_gthan_2, &&op_gthan_v, &&op_lthan_2, &&op_lthan_v,
     &&op_geto_2, &&op_geto_v, &&op_leto_2, &&op_leto_v,
     &&op_get_str_0, &&op_get_str_1, &&op_get_num_0, &&op_get_num_1,
-    &&op_str_v, &&op_println_v
+    &&op_vec_v, &&op_str_v, &&op_println_v
   };
   #define NEXT_INSTRUCTION() goto *instructions[(++f)->what]
   
@@ -176,13 +176,16 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
       //TODO
       NEXT_INSTRUCTION();
     }
+    op_vec_v:
+      Op_Vec_V(f->as.op.numArgs);
+      NEXT_INSTRUCTION();
     op_str_v:
       Op_Str_V(f->as.op.numArgs);
       NEXT_INSTRUCTION();
     op_println_v:
       Op_Str_V(f->as.op.numArgs);
       printf("%s\n", stack[sp].obj()->as.str->c_str());
-      delete stack[sp].obj();
+      stack[sp].tryDelete();
       stack[sp] = Value();
       NEXT_INSTRUCTION();
   }
@@ -191,33 +194,46 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
 void KuanVM::Op_Str_V (argnum aN) {
   auto str = new string("");
   for (argnum a = (sp - aN) + 1, aEnd = sp + 1; a < aEnd; ++a) {
-    if (stack[a].isNum()) {
-      auto num = to_string(stack[a].as.num);
-      auto t0 = num.find_last_not_of('0');
-      num.erase(t0 + (t0 != num.find('.')), std::string::npos);
-      *str += num;
-    } else {
-      if (stack[a].as.tags.isSimple)
-        switch (stack[a].as.simple.type) {
-          case N: *str += string(1, 'N'); break;
-          case T: *str += string(1, 'T'); break;
-          case F: *str += string(1, 'F'); break;
-          case Character: *str += string(1, (char)stack[a].as.simple.ch); break;
-        }
-      else {
-        switch (stack[a].obj()->type) {
-          case String: str->append(stack[a].obj()->as.str->c_str()); break;
-        }
-        delete stack[a].obj();
-      }
-    }
+    *str += ValAsStr(stack[a]);
+    stack[a].tryDelete();
   }
   sp -= aN - 1;
   stack[sp] = Value(new Object(str));
 }
 
-void KuanVM::printVal (Value v) {
-  stack[++sp] = v;
-  Op_Str_V(1);
-  printf("%s\n", stack[sp--].obj()->as.str->c_str());
+string KuanVM::ValAsStr (Value value) {
+  auto str = string("");
+  if (value.isNum()) {
+    auto num = to_string(value.as.num);
+    auto t0 = num.find_last_not_of('0');
+    num.erase(t0 + (t0 != num.find('.')), std::string::npos);
+    str += num;
+  } else {
+    if (value.as.tags.isSimple)
+      switch (value.as.simple.type) {
+        case N: str += string(1, 'N'); break;
+        case T: str += string(1, 'T'); break;
+        case F: str += string(1, 'F'); break;
+        case Character: str += string(1, (char)value.as.simple.ch); break;
+      }
+    else {
+      switch (value.obj()->type) {
+        case String:
+          str.append(value.obj()->as.str->c_str());
+          break;
+        case Vector:
+          str.append("[" + to_string(value.obj()->as.vec->size()) + "]");
+          break;
+      }
+    }
+  }
+  return str;
+}
+
+void KuanVM::Op_Vec_V (argnum aN) {
+  auto iVec = immer::flex_vector_transient<Value>();
+  for (argnum a = sp - aN ; a < sp; ++a)
+    iVec.push_back(stack[a]);
+  auto vec = new immer::flex_vector<Value>(iVec.persistent());
+  stack[sp -= aN - 1] = Value(new Object(vec));
 }

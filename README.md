@@ -61,7 +61,7 @@ or with code as string e.g. `./build/kuan "(+ 1 1)"`.
 | `0x1` or `0x12`                      | 8 bit unsigned integer  |
 | `3.14` or `.14` or `-3.14` or `-.14` | 64 bit signed real      |
 | `0x3.AB` or `-3.AB` (hex)            | 64 bit signed real      |
-| `[1 2 3]`                            | vector                  |
+| `[1 \a "hello"]`                     | vector                  |
 | `%`                                  | first parameter         |
 | `%N`                                 | `N`th parameter         |
 | `args`                               | vector of arguments     |

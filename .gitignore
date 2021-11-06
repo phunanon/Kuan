@@ -34,5 +34,6 @@
 # Kuan
 .*
 build
+immer
 other
 callgrind.out.*
