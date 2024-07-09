@@ -84,6 +84,7 @@ immer::flex_vector<Value>* asVec (Value& value);
 
 struct __attribute__((__packed__)) Operation {
   OpType what;
+  void* where;
   uint8_t numArgs;
 };
 
@@ -94,6 +95,7 @@ struct __attribute__((__packed__)) Call {
 
 struct __attribute__((__packed__)) Instruction {
   InsType what;
+  void* where;
   union {
     double num;
     char ch;
@@ -112,5 +114,6 @@ struct Function {
   vector<Instruction> ins;
   vector<Value> objs;
   string name = "entry";
+  bool threaded = false;
   void mergeIn (unique_ptr<Function>);
 };

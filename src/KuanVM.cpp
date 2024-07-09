@@ -78,8 +78,10 @@ Value KuanVM::executeFunction (fid id, Value param) {
 
 
 void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
-  Instruction* f = functions.get(id);
-  if (!f) return;
+  uint16_t fAt;
+  if (!functions.funcIdAt(id, fAt)) return;
+  auto& func = functions.funcs[fAt];
+  Instruction* f = func->ins.data();
   
   static void* instructions[] = {
     &&ins_return, &&ins_push_num, &&ins_push_bool, &&ins_push_char, &&ins_push_str, 
@@ -94,7 +96,22 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
     &&op_get_str_0, &&op_get_str_1, &&op_get_num_0, &&op_get_num_1,
     &&op_vec_v, &&op_str_v, &&op_println_v
   };
-  #define NEXT_INSTRUCTION() goto *instructions[(++f)->what]
+
+  //Go through the instructions and populate ->where with label pointers 
+  if (!func->threaded) {
+    for (Instruction* i = f; ; ++i) {
+      i->where = instructions[i->what];
+      if (i->what == EXECUTE)
+        i->as.op.where = ops[i->as.op.what];
+      if (i->what == RETURN) {
+        i->where = &&ins_return;
+        break;
+      }
+    }
+    func->threaded = true;
+  }
+  
+  #define NEXT_INSTRUCTION() goto *(++f)->where;
   
   --f;
   NEXT_INSTRUCTION();
@@ -127,7 +144,7 @@ void KuanVM::executeFunction (fid id, argnum p0, argnum pN) {
     NEXT_INSTRUCTION();
   }
   ins_execute:
-    goto *ops[f->as.op.what];
+    goto *f->as.op.where;
 
   op_none_0: NEXT_INSTRUCTION();
   op_exe_v:

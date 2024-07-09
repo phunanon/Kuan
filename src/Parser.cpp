@@ -252,23 +252,23 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
         bool preDot = token.str[isNeg] == '.';
         bool isHex  = token.str.find('x') != string::npos;
         token.str = token.str.substr(preDot ? isNeg + preDot : 0);
-        func->ins.push_back({PUSH_NUM, {.num = stod(token.str)}});
+        func->ins.push_back({PUSH_NUM,nullptr, {.num = stod(token.str)}});
         break;
       }
       case Token::Char: {
         //FIXME with nl sp
-        func->ins.push_back({PUSH_CHAR, {.ch = token.str[1]}});
+        func->ins.push_back({PUSH_CHAR,nullptr, {.ch = token.str[1]}});
         break;
       }
       case Token::String: {
         auto value = new Value(new string(token.str), true);
-        func->ins.push_back(Instruction{PUSH_STR, {.val = value}});
+        func->ins.push_back(Instruction{PUSH_STR,nullptr, {.val = value}});
         break;
       }
       case Token::Para: {
         token.str.erase(token.str.begin());
         fid fID = token.str.length() ? stoi(token.str) : 0;
-        func->ins.push_back(Instruction{PUSH_PARA, {.u64 = fID}});
+        func->ins.push_back(Instruction{PUSH_PARA,nullptr, {.u64 = fID}});
         break;
       }
       case Token::Symbol: {
@@ -278,18 +278,18 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
           char ch = token.str[0];
           //True/False
           if (ch == 'T' || ch == 'F') {
-            func->ins.push_back(Instruction{PUSH_BOOL, {.tru = ch == 'T'}});
+            func->ins.push_back(Instruction{PUSH_BOOL,nullptr, {.tru = ch == 'T'}});
             break;
           }
           //Nil
           if (ch == 'N') {
-            func->ins.push_back(Instruction{PUSH_NUM, {.u64 = DEFAULT_VAL}});
+            func->ins.push_back(Instruction{PUSH_NUM,nullptr, {.u64 = DEFAULT_VAL}});
             break;
           }
         } { //Param
           auto pIt = find(paras.begin(), paras.end(), token.str); 
           if (pIt != paras.end()) {
-            func->ins.push_back(Instruction{PUSH_PARA, {.u64 = (uint)(pIt - paras.begin())}});
+            func->ins.push_back(Instruction{PUSH_PARA,nullptr, {.u64 = (uint)(pIt - paras.begin())}});
             break;
           }
         }
@@ -319,9 +319,9 @@ void serialise (deque<Token>& tokens, Function* func, vector<string> paras) {
   if (!opType) {
     //Wasn't an op, so might be a [TODO: parameter, variable, or] function
     fid fID = hash<string>{}(opToken.str);
-    func->ins.push_back(Instruction{CALL, {.call = {fID, arity}}});
+    func->ins.push_back(Instruction{CALL,nullptr, {.call = {fID, arity}}});
   } else
-    func->ins.push_back(Instruction{EXECUTE, {.op = {opType, arity}}});
+    func->ins.push_back(Instruction{EXECUTE,nullptr, {.op = {opType,nullptr, arity}}});
 }
 
 
